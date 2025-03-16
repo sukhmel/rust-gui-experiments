@@ -1,8 +1,9 @@
 # rust-gui-experiments
 
-<img width=120 height=120 src="https://lap.dev/images/floem.svg"></img>
-<img src="https://github.com/iced-rs/iced/tree/master/docs/logo.svg" width="140px" />
-![#MadeWithSlint](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-light.svg#gh-light-mode-only)![#MadeWithSlint](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
+<img width=100 height=100 src="https://lap.dev/images/floem.svg"></img>
+<img src="https://raw.githubusercontent.com/iced-rs/iced/refs/heads/master/docs/logo.svg" width="100px"></img>
+![#MadeWithSlint](https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-light.svg#gh-light-mode-only)
+![#MadeWithSlint](https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
 
 Trying out different GUI crates, just to get to know what is possible and how to do it.
 
