@@ -1,0 +1,20 @@
+[package]
+name = "gui-experiment"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+floem = { version = "0.2", optional = true }
+iced = { version = "0.13", optional = true}
+itertools = "0.14.0"
+slint = { version = "1.10", optional = true }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+[build-dependencies]
+slint-build = { version = "1.10", optional = true }
+
+[features]
+floem = ["dep:floem"]
+iced = ["dep:iced"]
+slint = ["dep:slint", "dep:slint-build"]

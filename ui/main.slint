@@ -1,0 +1,60 @@
+// Copyright (C) 2025  Vladislav Sukhmel
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+struct TileData {
+    enabled: bool,
+    text: string,
+    color: color,
+}
+
+export component MainWindow inherits Window {
+    callback click(PointerEvent, int, int);
+    in property <[TileData]> tiles;
+    in-out property <duration> elapsed-time;
+
+    width: 480px;
+    height: 480px;
+
+    VerticalLayout {
+        spacing: 15px;
+
+        for a[top_y] in 3: HorizontalLayout {
+            spacing: 15px;
+
+            for b[top_x] in 3: VerticalLayout {
+                for c[y] in 3: HorizontalLayout {
+                    for d[x] in 3: Rectangle {
+                        property <TileData> data: tiles[x + top_x * 3 + (y + top_y * 3) * 9];
+                        area := TouchArea {
+                            Text {
+                                text: data.text;
+                                color: data.enabled ? white : black;
+                                font-size: 20px;
+                                font-weight: data.enabled ? 400 : 600;
+                            }
+                            pointer-event(event) =>  { click(event, x + top_x * 3, y + top_y * 3)}
+                            enabled: data.enabled;
+                        }
+                        border-color: black;
+                        border-width: 2px;
+                        background: area.has-hover ? data.color.darker(0.5) : (data.enabled ? data.color : data.color.brighter(0.5));
+                        width: 50px;
+                        height: 50px;
+                    }
+                }
+            }
+        }
+    }
+}
