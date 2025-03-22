@@ -11,20 +11,26 @@ use floem::prelude::{RwSignal, button, h_stack_from_iter, v_stack_from_iter};
 use floem::reactive::{SignalGet, SignalUpdate, create_signal, create_updater};
 use floem::style::StyleValue;
 use floem::views::Decorators;
-use floem::window::WindowConfig;
+use floem::window::{Icon, WindowConfig};
 use itertools::Itertools;
 
 use crate::{Colour, SudokuModel};
 
 pub fn main(sudoku_model: SudokuModel) {
+    let icon = image::ImageReader::open("www/favicon.png")
+        .unwrap()
+        .decode()
+        .unwrap()
+        .to_rgba8();
+    let window_config = WindowConfig::default()
+        .window_icon(Icon::from_rgba(icon.to_vec(), icon.width(), icon.height()).unwrap())
+        .title("Sudoku")
+        .size(Size {
+            width: 585.0,
+            height: 585.0,
+        });
     floem::Application::new()
-        .window(
-            move |_app| sudoku_model.into_view(),
-            Some(WindowConfig::default().title("Sudoku").size(Size {
-                width: 585.0,
-                height: 585.0,
-            })),
-        )
+        .window(move |_app| sudoku_model.into_view(), Some(window_config))
         .run();
 }
 

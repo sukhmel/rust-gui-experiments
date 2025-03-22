@@ -1100,6 +1100,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "const-field-offset"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1847,7 +1857,7 @@ dependencies = [
  "bytemuck",
  "fnv",
  "glow 0.16.0",
- "image",
+ "image 0.25.5",
  "imgref",
  "log",
  "lru",
@@ -1919,7 +1929,7 @@ dependencies = [
  "floem_vger_renderer",
  "im",
  "im-rc",
- "image",
+ "image 0.25.5",
  "indexmap",
  "lapce-xi-rope",
  "parking_lot 0.12.3",
@@ -2033,7 +2043,7 @@ dependencies = [
  "crossbeam",
  "floem-winit",
  "futures",
- "image",
+ "image 0.25.5",
  "parking_lot 0.12.3",
  "peniko",
  "resvg 0.43.0",
@@ -2052,7 +2062,7 @@ dependencies = [
  "bytemuck",
  "floem_renderer",
  "futures",
- "image",
+ "image 0.25.5",
  "peniko",
  "raw-window-handle 0.6.2",
  "resvg 0.43.0",
@@ -2070,7 +2080,7 @@ dependencies = [
  "floem-vger",
  "floem_renderer",
  "futures",
- "image",
+ "image 0.25.5",
  "peniko",
  "raw-window-handle 0.6.2",
  "resvg 0.43.0",
@@ -2802,13 +2812,18 @@ dependencies = [
 name = "gui-experiment"
 version = "0.1.0"
 dependencies = [
+ "console_error_panic_hook",
  "floem",
  "iced",
+ "image 0.25.5",
  "itertools 0.14.0",
  "slint",
  "slint-build",
  "tracing",
  "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "web-sys",
 ]
 
 [[package]]
@@ -3031,7 +3046,7 @@ dependencies = [
  "derive_more",
  "fontdue 0.9.3",
  "i-slint-common",
- "image",
+ "image 0.25.5",
  "itertools 0.14.0",
  "linked_hash_set",
  "lyon_extra",
@@ -3067,7 +3082,7 @@ dependencies = [
  "fontdue 0.9.3",
  "i-slint-common",
  "i-slint-core-macros",
- "image",
+ "image 0.25.5",
  "integer-sqrt",
  "lyon_algorithms",
  "lyon_extra",
@@ -3205,6 +3220,7 @@ dependencies = [
  "iced_renderer",
  "iced_widget",
  "iced_winit",
+ "image 0.24.9",
  "thiserror 1.0.69",
 ]
 
@@ -3267,6 +3283,8 @@ dependencies = [
  "half",
  "iced_core",
  "iced_futures",
+ "image 0.24.9",
+ "kamadak-exif",
  "log",
  "once_cell",
  "raw-window-handle 0.6.2",
@@ -3552,6 +3570,24 @@ dependencies = [
 
 [[package]]
 name = "image"
+version = "0.24.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5690139d2f55868e080017335e4b94cb7414274c74f1669c84fb5feba2c9f69d"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "color_quant",
+ "exr",
+ "gif",
+ "jpeg-decoder",
+ "num-traits",
+ "png",
+ "qoi",
+ "tiff",
+]
+
+[[package]]
+name = "image"
 version = "0.25.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd6f44aed642f18953a158afeb30206f4d50da59fbc66ecb53c66488de73563b"
@@ -3743,6 +3779,9 @@ name = "jpeg-decoder"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5d4a7da358eff58addd2877a45865158f0d78c911d43a5784ceb7bbf52833b0"
+dependencies = [
+ "rayon",
+]
 
 [[package]]
 name = "js-sys"
@@ -3752,6 +3791,15 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kamadak-exif"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef4fc70d0ab7e5b6bafa30216a6b48705ea964cdfc29c050f2412295eba58077"
+dependencies = [
+ "mutate_once",
 ]
 
 [[package]]
@@ -4125,6 +4173,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "minicov"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f27fe9f1cc3c22e1687f9446c2083c4c5fc7f0bcf1c7a86bdbded14985895b4b"
+dependencies = [
+ "cc",
+ "walkdir",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4160,6 +4218,12 @@ dependencies = [
  "thiserror 2.0.12",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "mutate_once"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
 
 [[package]]
 name = "naga"
@@ -6976,6 +7040,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a05d73b933a847d6cccdda8f838a22ff101ad9bf93e33684f39c1f5f0eece3d"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "wasm-bindgen-test"
+version = "0.3.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66c8d5e33ca3b6d9fa3b4676d774c5778031d27a578c2b007f905acf816152c3"
+dependencies = [
+ "js-sys",
+ "minicov",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test-macro",
+]
+
+[[package]]
+name = "wasm-bindgen-test-macro"
+version = "0.3.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17d5042cc5fa009658f9a7333ef24291b1291a25b6382dd68862a7f3b969f69b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
 ]
 
 [[package]]

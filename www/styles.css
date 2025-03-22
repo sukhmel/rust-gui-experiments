@@ -1,0 +1,23 @@
+body{
+    padding: 30px;
+}
+.sudoku-table {
+    border-collapse: separate;
+}
+.sudoku-col:nth-child(3n) {
+    padding-right: 30px;
+}
+.sudoku-row:nth-child(3n) .sudoku-col {
+    padding-bottom: 30px;
+}
+.sudoku-cell {
+    width: 60px;
+    height: 60px;
+    font-size: 30px;
+}
+.green {
+    color: green;
+}
+.red {
+    color: red;
+}

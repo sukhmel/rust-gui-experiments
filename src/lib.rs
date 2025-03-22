@@ -9,6 +9,9 @@ pub mod iced;
 #[cfg(feature = "slint")]
 pub mod slint;
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 #[derive(Debug, Clone, Copy)]
 pub struct SudokuValue {
     value: u8,

@@ -2,7 +2,7 @@
 
 use iced::border::Radius;
 use iced::font::Weight;
-use iced::widget::button::Status;
+use iced::widget::button::{Status, Style};
 use iced::widget::{Column, Row, button};
 use iced::{Background, Border, Color, Element, Font, Pixels, Settings, Task, window};
 
@@ -15,6 +15,38 @@ pub enum Message {
 
 pub const CELL_SIZE: f32 = 50.0;
 pub const WINDOW_SIZE: f32 = CELL_SIZE * 11.0;
+const DEFAULT_BORDER: Border = Border {
+    color: Color::from_rgb(0.6, 0.6, 0.6),
+    width: 1.0,
+    radius: Radius {
+        top_left: CELL_SIZE / 6.0,
+        top_right: CELL_SIZE / 6.0,
+        bottom_right: CELL_SIZE / 6.0,
+        bottom_left: CELL_SIZE / 6.0,
+    },
+};
+
+fn style_button_by_state(status: Status, mut style: Style) -> Style {
+    match status {
+        Status::Active => {
+            style.background = Some(Background::Color(Color::from_rgb(0.9, 0.9, 0.9)));
+        }
+        Status::Hovered => {
+            style.background = Some(Background::Color(Color::from_rgb(0.8, 0.8, 0.8)));
+        }
+        Status::Pressed => {
+            style.background = Some(Background::Color(Color::from_rgb(0.7, 0.7, 0.7)));
+        }
+        Status::Disabled => {
+            style.background = Some(Background::Color(Color::WHITE));
+            let mut border = DEFAULT_BORDER.clone();
+            border.width = border.width * 1.5;
+            border.color = Color::BLACK;
+            style.border = border;
+        }
+    }
+    style
+}
 
 pub fn main(sudoku_model: SudokuModel) -> iced::Result {
     let window_settings = window::Settings {
@@ -22,6 +54,7 @@ pub fn main(sudoku_model: SudokuModel) -> iced::Result {
             width: WINDOW_SIZE,
             height: WINDOW_SIZE,
         },
+        icon: Some(window::icon::from_file("www/favicon.png").unwrap()),
         resizable: false,
         decorations: true,
         ..Default::default()
@@ -43,33 +76,23 @@ pub fn main(sudoku_model: SudokuModel) -> iced::Result {
 
 impl SudokuModel {
     pub fn view(&self) -> Column<Message> {
-        let default_border = Border {
-            color: Color::from_rgb(0.6, 0.6, 0.6),
-            width: 1.0,
-            radius: Radius {
-                top_left: CELL_SIZE / 6.0,
-                top_right: CELL_SIZE / 6.0,
-                bottom_right: CELL_SIZE / 6.0,
-                bottom_left: CELL_SIZE / 6.0,
-            },
-        };
-        let default_style = button::Style {
+        let default_button_style: Style = Style {
             background: Some(Background::Color(Color::WHITE)),
-            border: default_border,
-            ..Default::default()
+            border: DEFAULT_BORDER,
+            ..Style::default()
         };
         let black = {
-            let mut result = default_style.clone();
+            let mut result = default_button_style.clone();
             result.text_color = Color::BLACK;
             result
         };
         let red = {
-            let mut result = default_style.clone();
+            let mut result = default_button_style.clone();
             result.text_color = Color::from_rgb(0.8, 0.0, 0.0);
             result
         };
         let green = {
-            let mut result = default_style.clone();
+            let mut result = default_button_style.clone();
             result.text_color = Color::from_rgb(0.0, 0.6, 0.0);
             result
         };
@@ -89,34 +112,14 @@ impl SudokuModel {
                         .on_press_maybe(enabled.then_some(Message::Click(x, y)))
                         .width(CELL_SIZE)
                         .height(CELL_SIZE)
+                        .padding([5, 16])
                         .style(move |_, status| {
-                            let mut style = match self.colour(x, y) {
+                            let style = match self.colour(x, y) {
                                 Colour::Black => black.clone(),
                                 Colour::Red => red.clone(),
                                 Colour::Green => green.clone(),
                             };
-                            match status {
-                                Status::Active => {
-                                    style.background =
-                                        Some(Background::Color(Color::from_rgb(0.9, 0.9, 0.9)));
-                                }
-                                Status::Hovered => {
-                                    style.background =
-                                        Some(Background::Color(Color::from_rgb(0.8, 0.8, 0.8)));
-                                }
-                                Status::Pressed => {
-                                    style.background =
-                                        Some(Background::Color(Color::from_rgb(0.7, 0.7, 0.7)));
-                                }
-                                Status::Disabled => {
-                                    style.background = Some(Background::Color(Color::WHITE));
-                                    let mut border = default_border.clone();
-                                    border.width = border.width * 1.5;
-                                    border.color = Color::BLACK;
-                                    style.border = border;
-                                }
-                            }
-                            style
+                            style_button_by_state(status, style)
                         }),
                 ));
                 if x == 8 {
