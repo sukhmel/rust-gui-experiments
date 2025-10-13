@@ -1,6 +1,7 @@
 //! Seems most flexible, but requires to attach signals to update everything.
 //!
 //! On macOS, the window icon doesn't seem to work, and closing the window does not finish the app.
+//! There will be `exit_on_close` in future floem versions to fix this.
 
 use std::array;
 use std::cell::RefCell;
