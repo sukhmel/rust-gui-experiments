@@ -1,4 +1,6 @@
 //! Seems most flexible, but requires to attach signals to update everything.
+//!
+//! On macOS, the window icon doesn't seem to work, and closing the window does not finish the app.
 
 use std::array;
 use std::cell::RefCell;
@@ -60,26 +62,24 @@ impl SudokuModel {
             },
         );
         let buttons: Vec<Vec<_>> = (0..9)
-            .map(|x| {
+            .map(|y| {
                 (0..9)
-                    .map({
-                        |y| {
-                            let button = button(text[x][y]);
+                    .map(|x| {
+                        let button = button(text[x][y]);
 
-                            button
-                                .action(move || click.set((x, y, 1)))
-                                .on_secondary_click(move |_| {
-                                    click.set((x, y, -1));
-                                    EventPropagation::Stop
-                                })
-                                .disabled(move || !enabled[x][y].get())
-                                .style(move |s| {
-                                    s.width(15)
-                                        .height(15)
-                                        .disabled(|s| s.color(colours[x][y].get()))
-                                        .color(colours[x][y].get())
-                                })
-                        }
+                        button
+                            .action(move || click.set((x, y, 1)))
+                            .on_secondary_click(move |_| {
+                                click.set((x, y, -1));
+                                EventPropagation::Stop
+                            })
+                            .disabled(move || !enabled[x][y].get())
+                            .style(move |s| {
+                                s.width(15)
+                                    .height(15)
+                                    .disabled(|s| s.color(colours[x][y].get()))
+                                    .color(colours[x][y].get())
+                            })
                     })
                     .collect()
             })

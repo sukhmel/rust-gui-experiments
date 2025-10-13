@@ -26,4 +26,13 @@ fn main() {
 
     #[cfg(feature = "slint")]
     gui_experiment::slint::main(sudoku_model).unwrap();
+
+    #[cfg(feature = "egui")]
+    gui_experiment::egui::main(sudoku_model).unwrap();
+
+    #[cfg(feature = "gpui")]
+    gui_experiment::gpui::main(sudoku_model);
+
+    #[cfg(feature = "xilem")]
+    compile_error!("Not implemented yet");
 }

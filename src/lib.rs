@@ -12,6 +12,12 @@ pub mod slint;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+#[cfg(feature = "egui")]
+pub mod egui;
+
+#[cfg(feature = "gpui")]
+pub mod gpui;
+
 #[derive(Debug, Clone, Copy)]
 pub struct SudokuValue {
     value: u8,
