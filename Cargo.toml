@@ -2,6 +2,9 @@
 name = "gui-experiment"
 version = "0.1.0"
 edition = "2024"
+license = "MIT and GPL-3"
+repository = "https://github.com/sukhmel/rust-gui-experiments.git"
+description = "Experimenting with different Rust GUI frameworks"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

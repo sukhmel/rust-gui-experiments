@@ -11,7 +11,7 @@
 //! scope, and then add the widget. Modifying the widget itself is for less idiomatic changes (?).
 //!
 //! Some more examples can be found on <https://egui.info>
-//! 
+//!
 //! [central panel margins]: https://github.com/emilk/egui/discussions/4365#discussioncomment-11371627
 //! [button on-hover background]: https://github.com/emilk/egui/discussions/3356
 //! [text size and colour]: https://github.com/emilk/egui/discussions/4518
@@ -20,6 +20,7 @@
 //! [also by replacing `winit` with `tao`]: https://github.com/sidit77/headset-controller
 
 use std::ops::Add;
+
 use eframe::egui::{Button, Context, IconData};
 use eframe::{Frame, egui};
 use egui::Color32;
@@ -88,8 +89,17 @@ impl eframe::App for SudokuModel {
                                                 let response = ui
                                                     .scope(|ui| {
                                                         let styles = ui.style_mut();
-                                                        styles.visuals.widgets.inactive.weak_bg_fill = color;
-                                                        styles.visuals.widgets.hovered.weak_bg_fill = color.add(Color32::from_gray(27));
+                                                        styles
+                                                            .visuals
+                                                            .widgets
+                                                            .inactive
+                                                            .weak_bg_fill = color;
+                                                        styles
+                                                            .visuals
+                                                            .widgets
+                                                            .hovered
+                                                            .weak_bg_fill =
+                                                            color.add(Color32::from_gray(27));
                                                         ui.add_enabled(enabled, button)
                                                     })
                                                     .inner;
@@ -101,7 +111,9 @@ impl eframe::App for SudokuModel {
                                                     self.add(x, y, -1);
                                                 }
                                                 if enabled {
-                                                    response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                                                    response.on_hover_cursor(
+                                                        egui::CursorIcon::PointingHand,
+                                                    );
                                                 }
                                             }
                                             ui.end_row();

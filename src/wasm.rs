@@ -10,17 +10,7 @@ use crate::{Colour, SudokuModel};
 
 #[wasm_bindgen(start)]
 pub fn main() -> Result<(), JsValue> {
-    let sudoku_model = Rc::new(RefCell::new(SudokuModel::from([
-        [1, 6, 7, 8, 9, 2, 3, 4, 5],
-        [4, 2, 8, 0, 0, 0, 0, 0, 0],
-        [5, 9, 3, 0, 0, 0, 0, 0, 0],
-        [6, 0, 0, 4, 0, 0, 0, 0, 0],
-        [7, 0, 0, 0, 5, 0, 0, 0, 0],
-        [8, 0, 0, 0, 0, 6, 0, 0, 0],
-        [9, 0, 0, 0, 0, 0, 7, 0, 0],
-        [2, 0, 0, 0, 0, 0, 0, 8, 0],
-        [3, 0, 0, 0, 0, 0, 0, 0, 9],
-    ])));
+    let sudoku_model = Rc::new(RefCell::new(SudokuModel::example()));
 
     // Use `web_sys`'s global `window` function to get a handle on the global
     // window object.

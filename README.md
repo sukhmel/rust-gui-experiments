@@ -1,21 +1,35 @@
 # rust-gui-experiments <img width=20 height=20 src="www/favicon.png"></img>
 
 <img width=100 height=100 src="https://lap.dev/images/floem.svg"></img>
-<img src="https://raw.githubusercontent.com/iced-rs/iced/refs/heads/master/docs/logo.svg" width="100px"></img>
-![#MadeWithSlint](https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-light.svg#gh-light-mode-only)
-![#MadeWithSlint](https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
+<img  width="100px" src="https://raw.githubusercontent.com/iced-rs/iced/refs/heads/master/docs/logo.svg"></img>
+<img  width="100px" src="./logos/WebAssembly.svg"></img>
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="./logos/zed-logo-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./logos/zed-logo-dark.svg">
+  <img alt="gpui by Zed Industries" src="./logos/zed-logo-dark.svg">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-dark.svg">
+  <img alt="#MadeWithSlint" src="https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-dark.svg">
+</picture>
 
 Trying out different GUI crates, just to get to know what is possible and how to do it.
 
 As a sample task Sudoku game is implemented with different feature-gated UIs:
-* [floem](https://github.com/lapce/floem)
-* [iced](https://github.com/iced-rs/iced)
-* [slint](https://github.com/slint-ui/slint)
-* [wasm](https://github.com/rustwasm/wasm-bindgen)
-* [egui](https://github.com/emilk/egui)
-* WIP [gpui](https://github.com/zed-industries/zed/tree/main/crates/gpui)
-* TODO [xilem](https://github.com/linebender/xilem)
-* Maybe [GTK](https://github.com/gtk-rs/gtk4-rs) and [Qt](https://github.com/KDAB/cxx-qt/) bindings?
+* [x] [floem](https://github.com/lapce/floem)
+* [x] [iced](https://github.com/iced-rs/iced)
+* [x] [slint](https://github.com/slint-ui/slint)
+* [x] [wasm](https://github.com/rustwasm/wasm-bindgen)
+* [x] [egui](https://github.com/emilk/egui)
+* [x] [gpui](https://github.com/zed-industries/zed/tree/main/crates/gpui)
+* [ ] [xilem](https://github.com/linebender/xilem)
+* [ ] [leptos](https://github.com/leptos-rs/leptos)
+* [ ] [rui](https://github.com/audulus/rui)
+* [ ] [ratatui](https://github.com/ratatui/ratatui)
+* [ ] (?) [Tauri](https://tauri.app/)
+* [ ] (?) [GTK](https://github.com/gtk-rs/gtk4-rs) bindings 
+* [ ] (?) [Qt](https://github.com/KDAB/cxx-qt/) bindings?
 
 Other examples for wasm are [wasm-bindgen's](https://rustwasm.github.io/wasm-bindgen/examples) and 
 [fosskers's](https://www.fosskers.ca/en/demo/game-of-life) 

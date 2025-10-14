@@ -7,9 +7,8 @@
 //! * <https://github.com/zed-industries/zed/tree/main/crates/gpui/examples>
 
 use gpui::{
-    App, Application, Bounds, Context, Hsla, IntoElement, KeyBinding, MouseButton, ParentElement,
-    Render, Styled, TitlebarOptions, Window, WindowBounds, WindowOptions, actions, div, prelude::*,
-    px, rgb,
+    App, Application, Bounds, Context, Hsla, IntoElement, MouseButton, ParentElement, Render,
+    Styled, TitlebarOptions, Window, WindowBounds, WindowOptions, div, prelude::*, px, rgb,
 };
 
 use crate::{Colour, SudokuModel};
