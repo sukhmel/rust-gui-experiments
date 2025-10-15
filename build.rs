@@ -8,6 +8,9 @@ fn main() {
                 + cfg!(feature = "gpui") as u32
                 + cfg!(feature = "wasm") as u32
                 + cfg!(feature = "xilem") as u32
+                + cfg!(feature = "leptos") as u32
+                + cfg!(feature = "rui") as u32
+                + cfg!(feature = "ratatui") as u32
         };
 
         match enabled_features {

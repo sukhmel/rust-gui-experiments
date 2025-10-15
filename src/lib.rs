@@ -18,6 +18,18 @@ pub mod egui;
 #[cfg(feature = "gpui")]
 pub mod gpui;
 
+#[cfg(feature = "xilem")]
+pub mod xilem;
+
+#[cfg(feature = "leptos")]
+pub mod leptos;
+
+#[cfg(feature = "rui")]
+pub mod rui;
+
+#[cfg(feature = "ratatui")]
+pub mod ratatui;
+
 #[derive(Debug, Clone, Copy)]
 pub struct SudokuValue {
     value: u8,
@@ -54,11 +66,10 @@ impl SudokuCell {
 impl From<[[u8; 9]; 9]> for SudokuModel {
     fn from(value: [[u8; 9]; 9]) -> Self {
         let mut result = SudokuModel::default();
-        for x in 0..9 {
-            for y in 0..9 {
-                let num = value[x][y];
-                if num != 0 {
-                    result.set(x, y, num);
+        for (x, col) in value.iter().enumerate() {
+            for (y, num) in col.iter().enumerate() {
+                if *num != 0 {
+                    result.set(x, y, *num);
                     result.set_enabled(x, y, false);
                 }
             }

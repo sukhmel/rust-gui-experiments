@@ -1,8 +1,8 @@
 # rust-gui-experiments <img width=20 height=20 src="www/favicon.png"></img>
 
 <img width=100 height=100 src="https://lap.dev/images/floem.svg"></img>
-<img  width="100px" src="https://raw.githubusercontent.com/iced-rs/iced/refs/heads/master/docs/logo.svg"></img>
-<img  width="100px" src="./logos/WebAssembly.svg"></img>
+<img width="100px" src="https://raw.githubusercontent.com/iced-rs/iced/refs/heads/master/docs/logo.svg"></img>
+<img width="100px" src="./logos/WebAssembly.svg"></img>
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="./logos/zed-logo-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="./logos/zed-logo-dark.svg">
@@ -13,6 +13,12 @@
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-dark.svg">
   <img alt="#MadeWithSlint" src="https://raw.githubusercontent.com/slint-ui/slint/refs/heads/master/logo/MadeWithSlint-logo-dark.svg">
 </picture>
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://ratatui.rs/_astro/hero-light.DXG5UAQy_1YWiFp.webp">
+  <source media="(prefers-color-scheme: dark)" srcset="https://ratatui.rs/_astro/hero-dark.sdDaGsSQ_Z1JuwEh.webp">
+  <img width="100px" alt="ratatui" src="https://ratatui.rs/_astro/hero-dark.sdDaGsSQ_Z1JuwEh.webp">
+</picture>
+
 
 Trying out different GUI crates, just to get to know what is possible and how to do it.
 
@@ -26,7 +32,7 @@ As a sample task Sudoku game is implemented with different feature-gated UIs:
 * [ ] [xilem](https://github.com/linebender/xilem)
 * [ ] [leptos](https://github.com/leptos-rs/leptos)
 * [ ] [rui](https://github.com/audulus/rui)
-* [ ] [ratatui](https://github.com/ratatui/ratatui)
+* [x] [ratatui](https://github.com/ratatui/ratatui)
 * [ ] (?) [Tauri](https://tauri.app/)
 * [ ] (?) [GTK](https://github.com/gtk-rs/gtk4-rs) bindings 
 * [ ] (?) [Qt](https://github.com/KDAB/cxx-qt/) bindings?
@@ -48,6 +54,10 @@ cargo run --features iced
 cargo run --features slint
 cargo run --features egui
 cargo run --features gpui
+cargo run --features xilem
+cargo run --features leptos
+cargo run --features rui
+cargo run --features ratatui
 ```
 
 ## GPUI on macOS

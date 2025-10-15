@@ -24,5 +24,14 @@ fn main() {
     gui_experiment::gpui::main(sudoku_model);
 
     #[cfg(feature = "xilem")]
-    compile_error!("Not implemented yet");
+    gui_experiment::xilem::main(sudoku_model).unwrap();
+
+    #[cfg(feature = "leptos")]
+    gui_experiment::leptos::main(sudoku_model).unwrap();
+
+    #[cfg(feature = "rui")]
+    gui_experiment::rui::main(sudoku_model).unwrap();
+
+    #[cfg(feature = "ratatui")]
+    gui_experiment::ratatui::main(sudoku_model).unwrap();
 }
