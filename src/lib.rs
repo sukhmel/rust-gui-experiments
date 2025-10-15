@@ -30,6 +30,9 @@ pub mod rui;
 #[cfg(feature = "ratatui")]
 pub mod ratatui;
 
+#[cfg(feature = "kas")]
+pub mod kas;
+
 #[derive(Debug, Clone, Copy)]
 pub struct SudokuValue {
     value: u8,

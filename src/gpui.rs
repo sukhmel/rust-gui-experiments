@@ -119,6 +119,7 @@ impl SudokuApp {
             .h(px(58.))
             .bg(color)
             .border_1()
+            .rounded(px(10.))
             .border_color(rgb(0x999999))
             .text_size(px(32.))
             .child(text);

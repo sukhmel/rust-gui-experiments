@@ -34,4 +34,7 @@ fn main() {
 
     #[cfg(feature = "ratatui")]
     gui_experiment::ratatui::main(sudoku_model).unwrap();
+
+    #[cfg(feature = "kas")]
+    gui_experiment::kas::main(sudoku_model).unwrap();
 }

@@ -33,6 +33,7 @@ As a sample task Sudoku game is implemented with different feature-gated UIs:
 * [ ] [leptos](https://github.com/leptos-rs/leptos)
 * [ ] [rui](https://github.com/audulus/rui)
 * [x] [ratatui](https://github.com/ratatui/ratatui)
+* [ ] [kas](https://github.com/kas-gui/kas)
 * [ ] (?) [Tauri](https://tauri.app/)
 * [ ] (?) [GTK](https://github.com/gtk-rs/gtk4-rs) bindings 
 * [ ] (?) [Qt](https://github.com/KDAB/cxx-qt/) bindings?
@@ -58,6 +59,7 @@ cargo run --features xilem
 cargo run --features leptos
 cargo run --features rui
 cargo run --features ratatui
+cargo run --features kas
 ```
 
 ## GPUI on macOS

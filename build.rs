@@ -1,16 +1,17 @@
 fn main() {
     const _: () = {
         let enabled_features = {
-            cfg!(feature = "slint") as u32
-                + cfg!(feature = "floem") as u32
-                + cfg!(feature = "iced") as u32
-                + cfg!(feature = "egui") as u32
-                + cfg!(feature = "gpui") as u32
-                + cfg!(feature = "wasm") as u32
-                + cfg!(feature = "xilem") as u32
-                + cfg!(feature = "leptos") as u32
-                + cfg!(feature = "rui") as u32
-                + cfg!(feature = "ratatui") as u32
+            cfg!(feature = "slint") as u8
+                + cfg!(feature = "floem") as u8
+                + cfg!(feature = "iced") as u8
+                + cfg!(feature = "egui") as u8
+                + cfg!(feature = "gpui") as u8
+                + cfg!(feature = "wasm") as u8
+                + cfg!(feature = "xilem") as u8
+                + cfg!(feature = "leptos") as u8
+                + cfg!(feature = "rui") as u8
+                + cfg!(feature = "ratatui") as u8
+                + cfg!(feature = "kas") as u8
         };
 
         match enabled_features {
