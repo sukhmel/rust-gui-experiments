@@ -41,7 +41,7 @@ pub struct SudokuValue {
 
 const VALUES: [&str; 10] = [" ", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 impl SudokuValue {
-    pub fn text(&self) -> &str {
+    pub fn text(&self) -> &'static str {
         VALUES[self.value as usize]
     }
 }

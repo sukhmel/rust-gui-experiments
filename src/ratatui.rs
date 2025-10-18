@@ -1,6 +1,8 @@
-//! Vibe-coded terminal UI implementation using ratatui.
+//! Terminal UI implementation using `ratatui`.
 //!
-//! Navigation: Arrow keys or hjkl (vim-style)
+//! Reimplemented practically from scratch after vibe-coded version proved unfixable.
+//!
+//! Navigation: Arrow keys or hjkl
 //! Input: Number keys (1-9) to set values, 0/Backspace/Delete to clear
 //! Value adjustment: +/- keys to increment/decrement
 //! Quit: Press ESC or 'q'
@@ -15,69 +17,360 @@
 //! ## Responsive Layout
 //!
 //! The UI automatically adapts to different terminal sizes, prioritizing header/footer:
-//! - **Height >= 15**: Header and footer with borders, cell size based on available space
-//! - **Height >= 11**: Header and footer without borders (compact), smaller cells
-//! - **Height < 11**: No header/footer, minimal grid only
+//! - **Height < 9**: Not enough space for display
+//! - **Height == 9**: No header/footer
+//! - **Height < 13**: No header, simple footer
+//! - **Height < 15**: Simple header and footer
+//! - **Height < 17**: Header with borders, simple footer
+//! - **Height >= 17**: Header and footer with borders
 //!
-//! Cell configurations based on available grid area:
-//! - **57x39+**: Large cells (5x3) with shared borders and 3x3 separators
-//! - **48x30+**: Medium cells (4x2) with shared borders and 3x3 separators
-//! - **37x19+**: Compact cells (3x1) with shared borders and 3x3 separators
-//! - **29x11+**: Small cells (3x1) with 3x3 separators only
-//! - **20x11+**: Tiny cells (2x1) with 3x3 separators
-//! - **18x9+**: Minimal cells (2x1) with no decorations
-//! - **9x9+**: Ultra-minimal (1x1) cells
+//! Cell configurations based on available grid area (with collapsed borders):
+//! - **9x9**: Simple 1x1 cells
+//! - **11x11**: Simple 1x1 cells with separators
+//! - **17x17**: Overlapping 3x3 cells with collapsed borders and collapsed separators
+//! - **19x19**: Overlapping 3x3 cells with separators, borders and border around, all collapsed
+//! - **23x23**: Overlapping 3x3 cells with separators and collapsed borders
+//! - **25x25**: Overlapping 3x3 cells with separators, collapsed borders and border around
+//! - **29x29**: Separate 3x3 cells with borders and separators
+//! - **31x31**: Separate 3x3 cells with borders, separators and border around
 
 use std::io;
+use std::io::Stdout;
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
+use ratatui::backend::Backend;
+use ratatui::symbols::line::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL, HORIZONTAL, Set, VERTICAL};
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    symbols,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame, Terminal,
 };
 
 use crate::{Colour, SudokuModel};
+
+pub const DOUBLE_HORIZONTAL_PLAIN_DOWN: &str = "╤";
+pub const DOUBLE_HORIZONTAL_PLAIN_UP: &str = "╧";
+pub const DOUBLE_HORIZONTAL_RIGHT_PLAIN_VERTICAL: &str = "╞";
+pub const DOUBLE_HORIZONTAL_LEFT_PLAIN_VERTICAL: &str = "╡";
+pub const DOUBLE_HORIZONTAL_PLAIN_CROSS: &str = "╪";
+pub const DOUBLE_RIGHT_PLAIN_DOWN: &str = "╒";
+pub const DOUBLE_RIGHT_PLAIN_UP: &str = "╘";
+pub const DOUBLE_LEFT_PLAIN_DOWN: &str = "╕";
+pub const DOUBLE_LEFT_PLAIN_UP: &str = "╛";
+
+pub const DOUBLE_VERTICAL_DOWN_PLAIN_HORIZONTAL: &str = "╥";
+pub const DOUBLE_VERTICAL_UP_PLAIN_HORIZONTAL: &str = "╨";
+pub const DOUBLE_VERTICAL_PLAIN_RIGHT: &str = "╟";
+pub const DOUBLE_VERTICAL_PLAIN_LEFT: &str = "╢";
+pub const DOUBLE_VERTICAL_PLAIN_CROSS: &str = "╫";
+pub const DOUBLE_DOWN_PLAIN_RIGHT: &str = "╓";
+pub const DOUBLE_UP_PLAIN_RIGHT: &str = "╙";
+pub const DOUBLE_DOWN_PLAIN_LEFT: &str = "╖";
+pub const DOUBLE_UP_PLAIN_LEFT: &str = "╜";
+
+pub const DOUBLE_SIDES_PLAIN: Set = Set {
+    vertical: DOUBLE_VERTICAL,
+    horizontal: HORIZONTAL,
+    top_right: DOUBLE_DOWN_PLAIN_LEFT,
+    top_left: DOUBLE_DOWN_PLAIN_RIGHT,
+    bottom_right: DOUBLE_UP_PLAIN_LEFT,
+    bottom_left: DOUBLE_UP_PLAIN_RIGHT,
+    vertical_left: DOUBLE_VERTICAL_PLAIN_LEFT,
+    vertical_right: DOUBLE_VERTICAL_PLAIN_RIGHT,
+    horizontal_down: DOUBLE_VERTICAL_DOWN_PLAIN_HORIZONTAL,
+    horizontal_up: DOUBLE_VERTICAL_UP_PLAIN_HORIZONTAL,
+    cross: DOUBLE_VERTICAL_PLAIN_CROSS,
+};
+
+pub const PLAIN_SIDES_DOUBLE: Set = Set {
+    vertical: VERTICAL,
+    horizontal: DOUBLE_HORIZONTAL,
+    top_right: DOUBLE_LEFT_PLAIN_DOWN,
+    top_left: DOUBLE_RIGHT_PLAIN_DOWN,
+    bottom_right: DOUBLE_LEFT_PLAIN_UP,
+    bottom_left: DOUBLE_RIGHT_PLAIN_UP,
+    vertical_left: DOUBLE_HORIZONTAL_RIGHT_PLAIN_VERTICAL,
+    vertical_right: DOUBLE_HORIZONTAL_LEFT_PLAIN_VERTICAL,
+    horizontal_down: DOUBLE_HORIZONTAL_PLAIN_DOWN,
+    horizontal_up: DOUBLE_HORIZONTAL_PLAIN_UP,
+    cross: DOUBLE_HORIZONTAL_PLAIN_CROSS,
+};
+
+pub const EMPTY_SET: Set = Set {
+    vertical: " ",
+    horizontal: " ",
+    top_right: " ",
+    top_left: " ",
+    bottom_right: " ",
+    bottom_left: " ",
+    vertical_left: " ",
+    vertical_right: " ",
+    horizontal_down: " ",
+    horizontal_up: " ",
+    cross: " ",
+};
 
 pub fn main(sudoku_model: SudokuModel) -> io::Result<()> {
     // Check if we're running in a terminal
     if !crossterm::tty::IsTty::is_tty(&io::stdout()) {
         eprintln!("Error: This application requires a terminal (TTY) to run.");
-        eprintln!("Please run it directly in a terminal, not through a pipe or non-TTY environment.");
+        eprintln!(
+            "Please run it directly in a terminal, not through a pipe or non-TTY environment."
+        );
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "Not running in a TTY",
         ));
     }
 
-    // Setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    // Setup terminal and restore on exit
+    let res = {
+        let mut terminal_guard = TerminalGuard::new()?;
+        let mut app = App::new(sudoku_model);
 
-    // Create app state and run
-    let mut app = App::new(sudoku_model);
-    let res = run_app(&mut terminal, &mut app);
-
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
+        run_app(terminal_guard.terminal(), &mut app)
+    };
 
     if let Err(err) = res {
         eprintln!("Error: {err:?}");
     }
 
     Ok(())
+}
+
+struct TerminalGuard {
+    terminal: Option<Terminal<CrosstermBackend<Stdout>>>,
+}
+
+impl TerminalGuard {
+    fn new() -> io::Result<Self> {
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen)?;
+        let backend = CrosstermBackend::new(stdout);
+        let terminal = Terminal::new(backend)?;
+        Ok(Self {
+            terminal: Some(terminal),
+        })
+    }
+
+    fn terminal(&mut self) -> &mut Terminal<CrosstermBackend<Stdout>> {
+        self.terminal.as_mut().unwrap()
+    }
+}
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let mut terminal = std::mem::take(&mut self.terminal).unwrap();
+        let _ = disable_raw_mode();
+        let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+        let _ = terminal.show_cursor();
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum BorderStyle {
+    None,
+    Plain,
+    Double,
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+enum State {
+    Neutral,
+    Good,
+    Bad,
+}
+
+struct Cell {
+    left: BorderStyle,
+    right: BorderStyle,
+    top: BorderStyle,
+    bottom: BorderStyle,
+    continued_left: bool,
+    continued_right: bool,
+    continued_up: bool,
+    continued_down: bool,
+    x: u16,
+    y: u16,
+    h: u16,
+    w: u16,
+    state: State,
+    selected: bool,
+    enabled: bool,
+    text: &'static str,
+}
+
+impl Cell {
+    fn has_borders(&self) -> bool {
+        self.left != BorderStyle::None
+            || self.right != BorderStyle::None
+            || self.top != BorderStyle::None
+            || self.bottom != BorderStyle::None
+    }
+
+    fn get_borders(&self) -> Borders {
+        let mut borders = Borders::empty();
+        if self.left != BorderStyle::None {
+            borders |= Borders::LEFT;
+        }
+        if self.right != BorderStyle::None {
+            borders |= Borders::RIGHT;
+        }
+        if self.top != BorderStyle::None {
+            borders |= Borders::TOP;
+        }
+        if self.bottom != BorderStyle::None {
+            borders |= Borders::BOTTOM;
+        }
+        borders
+    }
+
+    fn get_border_set(&self) -> symbols::border::Set {
+        let mut result = symbols::border::EMPTY;
+        let (top_left_set, bottom_left_set) = if self.left == BorderStyle::Double {
+            let top_left_set = if self.top == BorderStyle::Double {
+                symbols::line::DOUBLE
+            } else if self.top == BorderStyle::Plain {
+                DOUBLE_SIDES_PLAIN
+            } else {
+                EMPTY_SET
+            };
+            let bottom_left_set = if self.bottom == BorderStyle::Double {
+                symbols::line::DOUBLE
+            } else if self.bottom == BorderStyle::Plain {
+                DOUBLE_SIDES_PLAIN
+            } else {
+                EMPTY_SET
+            };
+            (top_left_set, bottom_left_set)
+        } else if self.left == BorderStyle::Plain {
+            let top_left_set = if self.top == BorderStyle::Double {
+                PLAIN_SIDES_DOUBLE
+            } else if self.top == BorderStyle::Plain {
+                symbols::line::NORMAL
+            } else {
+                EMPTY_SET
+            };
+            let bottom_left_set = if self.bottom == BorderStyle::Double {
+                PLAIN_SIDES_DOUBLE
+            } else if self.bottom == BorderStyle::Plain {
+                symbols::line::NORMAL
+            } else {
+                EMPTY_SET
+            };
+            (top_left_set, bottom_left_set)
+        } else {
+            (EMPTY_SET, EMPTY_SET)
+        };
+
+        let (top_right_set, bottom_right_set) = if self.right == BorderStyle::Double {
+            let top_right_set = if self.top == BorderStyle::Double {
+                symbols::line::DOUBLE
+            } else if self.top == BorderStyle::Plain {
+                DOUBLE_SIDES_PLAIN
+            } else {
+                EMPTY_SET
+            };
+            let bottom_right_set = if self.bottom == BorderStyle::Double {
+                symbols::line::DOUBLE
+            } else if self.bottom == BorderStyle::Plain {
+                DOUBLE_SIDES_PLAIN
+            } else {
+                EMPTY_SET
+            };
+            (top_right_set, bottom_right_set)
+        } else if self.right == BorderStyle::Plain {
+            let top_right_set = if self.top == BorderStyle::Double {
+                PLAIN_SIDES_DOUBLE
+            } else if self.top == BorderStyle::Plain {
+                symbols::line::NORMAL
+            } else {
+                EMPTY_SET
+            };
+            let bottom_right_set = if self.bottom == BorderStyle::Double {
+                PLAIN_SIDES_DOUBLE
+            } else if self.bottom == BorderStyle::Plain {
+                symbols::line::NORMAL
+            } else {
+                EMPTY_SET
+            };
+            (top_right_set, bottom_right_set)
+        } else {
+            (EMPTY_SET, EMPTY_SET)
+        };
+
+        if self.continued_left && self.continued_up {
+            result.top_left = top_left_set.cross;
+        } else if self.continued_left {
+            result.top_left = top_left_set.horizontal_down;
+        } else if self.continued_up {
+            result.top_left = top_left_set.vertical_right;
+        } else {
+            result.top_left = top_left_set.top_left;
+        }
+
+        if self.continued_left && self.continued_down {
+            result.bottom_left = bottom_left_set.cross;
+        } else if self.continued_left {
+            result.bottom_left = bottom_left_set.horizontal_up;
+        } else if self.continued_down {
+            result.bottom_left = bottom_left_set.vertical_right;
+        } else {
+            result.bottom_left = bottom_left_set.bottom_left;
+        }
+
+        if self.continued_right && self.continued_up {
+            result.top_right = top_right_set.cross;
+        } else if self.continued_right {
+            result.top_right = top_right_set.horizontal_down;
+        } else if self.continued_up {
+            result.top_right = top_right_set.vertical_left;
+        } else {
+            result.top_right = top_right_set.top_right;
+        }
+
+        if self.continued_right && self.continued_down {
+            result.bottom_right = bottom_right_set.cross;
+        } else if self.continued_right {
+            result.bottom_right = bottom_right_set.horizontal_up;
+        } else if self.continued_down {
+            result.bottom_right = bottom_right_set.vertical_left;
+        } else {
+            result.bottom_right = bottom_right_set.bottom_right;
+        }
+
+        if self.right == BorderStyle::Double {
+            result.vertical_right = symbols::line::DOUBLE.vertical;
+        } else if self.right == BorderStyle::Plain {
+            result.vertical_right = symbols::line::NORMAL.vertical;
+        }
+        if self.top == BorderStyle::Double {
+            result.horizontal_top = symbols::line::DOUBLE.horizontal;
+        } else if self.top == BorderStyle::Plain {
+            result.horizontal_top = symbols::line::NORMAL.horizontal;
+        }
+        if self.bottom == BorderStyle::Double {
+            result.horizontal_bottom = symbols::line::DOUBLE.horizontal;
+        } else if self.bottom == BorderStyle::Plain {
+            result.horizontal_bottom = symbols::line::NORMAL.horizontal;
+        }
+        if self.left == BorderStyle::Double {
+            result.vertical_left = symbols::line::DOUBLE.vertical;
+        } else if self.left == BorderStyle::Plain {
+            result.vertical_left = symbols::line::NORMAL.vertical;
+        }
+
+        result
+    }
 }
 
 struct App {
@@ -104,43 +397,22 @@ impl App {
                 self.should_quit = true;
             }
             // Navigation - Arrow keys
-            KeyCode::Up => {
+            KeyCode::Up | KeyCode::Char('k') => {
                 if self.cursor_y > 0 {
                     self.cursor_y -= 1;
                 }
             }
-            KeyCode::Down => {
+            KeyCode::Down | KeyCode::Char('j') => {
                 if self.cursor_y < 8 {
                     self.cursor_y += 1;
                 }
             }
-            KeyCode::Left => {
+            KeyCode::Left | KeyCode::Char('h') => {
                 if self.cursor_x > 0 {
                     self.cursor_x -= 1;
                 }
             }
-            KeyCode::Right => {
-                if self.cursor_x < 8 {
-                    self.cursor_x += 1;
-                }
-            }
-            // Navigation - Vim style (hjkl)
-            KeyCode::Char('h') => {
-                if self.cursor_x > 0 {
-                    self.cursor_x -= 1;
-                }
-            }
-            KeyCode::Char('j') => {
-                if self.cursor_y < 8 {
-                    self.cursor_y += 1;
-                }
-            }
-            KeyCode::Char('k') => {
-                if self.cursor_y > 0 {
-                    self.cursor_y -= 1;
-                }
-            }
-            KeyCode::Char('l') => {
+            KeyCode::Right | KeyCode::Char('l') => {
                 if self.cursor_x < 8 {
                     self.cursor_x += 1;
                 }
@@ -174,10 +446,7 @@ impl App {
     }
 }
 
-fn run_app<B: ratatui::backend::Backend>(
-    terminal: &mut Terminal<B>,
-    app: &mut App,
-) -> io::Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
 
@@ -196,136 +465,64 @@ fn run_app<B: ratatui::backend::Backend>(
 
 /// Layout configuration based on available grid area size
 struct LayoutConfig {
-    cell_width: u16,
-    cell_height: u16,
-    show_grid_border: bool,
-    show_cell_borders: bool,
-    separator_size: u16,
+    small_cell: bool,
+    outer_border: bool,
+    cell_border: bool,
+    cell_collapsed: bool,
+    separators_visible: bool,
+    separators_collapsed: bool,
 }
 
 impl LayoutConfig {
     fn from_size(width: u16, height: u16) -> Self {
-        // Select layout based on what actually fits in the available area
-        // With shared borders: cell*9 + 8 internal + separators + grid_border
-        
-        // Large: 5*9 + 8 + 2 + 2 = 57w, 3*9 + 8 + 2 + 2 = 39h (cell=5x3, shared borders)
-        if width >= 57 && height >= 39 {
-            Self {
-                cell_width: 5,
-                cell_height: 3,
-                show_grid_border: true,
-                show_cell_borders: true,
-                separator_size: 1,
-            }
-        }
-        // Medium: 4*9 + 8 + 2 + 2 = 48w, 2*9 + 8 + 2 + 2 = 30h (cell=4x2, shared borders)
-        else if width >= 48 && height >= 30 {
-            Self {
-                cell_width: 4,
-                cell_height: 2,
-                show_grid_border: true,
-                show_cell_borders: true,
-                separator_size: 1,
-            }
-        }
-        // Compact with borders: 3*9 + 8 + 2 = 37w, 1*9 + 8 + 2 = 19h (cell=3x1, shared borders)
-        else if width >= 37 && height >= 19 {
-            Self {
-                cell_width: 3,
-                cell_height: 1,
-                show_grid_border: false,
-                show_cell_borders: true,
-                separator_size: 1,
-            }
-        }
-        // Compact no cell borders: 3*9 + 2 = 29w, 1*9 + 2 = 11h (cell=3x1, just separators)
-        else if width >= 29 && height >= 11 {
-            Self {
-                cell_width: 3,
-                cell_height: 1,
-                show_grid_border: false,
-                show_cell_borders: false,
-                separator_size: 1,
-            }
-        }
-        // Small: 2*9 + 2 = 20w, 1*9 + 2 = 11h (cell=2x1, separators)
-        else if width >= 20 && height >= 11 {
-            Self {
-                cell_width: 2,
-                cell_height: 1,
-                show_grid_border: false,
-                show_cell_borders: false,
-                separator_size: 1,
-            }
-        }
-        // Minimal: 2*9 = 18w, 1*9 = 9h (cell=2x1, no separators)
-        else if width >= 18 && height >= 9 {
-            Self {
-                cell_width: 2,
-                cell_height: 1,
-                show_grid_border: false,
-                show_cell_borders: false,
-                separator_size: 0,
-            }
-        }
-        // Ultra-minimal: 1*9 = 9w, 1*9 = 9h (cell=1x1)
-        else {
-            Self {
-                cell_width: 1,
-                cell_height: 1,
-                show_grid_border: false,
-                show_cell_borders: false,
-                separator_size: 0,
-            }
+        let small_cell = width < 17 || height < 17;
+        let cell_border = width > 16 && height > 16;
+        let cell_collapsed = width < 29 || height < 29;
+        let separators_collapsed = width > 16 && width < 23 && height > 16 && height < 23;
+        let separators_visible = width > 10 && height > 10;
+        let outer_border = width > 18 && width < 23 && height > 18 && height < 23
+            || width > 24 && width < 29 && height > 24 && height < 29
+            || width > 30 && height > 30;
+        Self {
+            small_cell,
+            outer_border,
+            cell_border,
+            cell_collapsed,
+            separators_visible,
+            separators_collapsed,
         }
     }
 
-    fn grid_width(&self) -> u16 {
-        if self.show_cell_borders {
-            // With shared borders: cell*9 + 8 internal borders + 2 separators + 2 grid borders
-            self.cell_width * 9 + 8 + self.separator_size * 2 + if self.show_grid_border { 2 } else { 0 }
-        } else {
-            self.cell_width * 9 + self.separator_size * 2 + if self.show_grid_border { 2 } else { 0 }
+    fn grid_side(&self) -> u16 {
+        let mut result = 0;
+        if self.outer_border {
+            result += 2;
         }
-    }
+        if self.separators_visible && !self.separators_collapsed {
+            result += 2;
+        }
+        if self.cell_border {
+            if self.cell_collapsed {
+                result += 2 * 9;
+            } else {
+                result += 3 * 9
+            }
+        }
 
-    fn grid_height(&self) -> u16 {
-        if self.show_cell_borders {
-            // With shared borders: cell*9 + 8 internal borders + 2 separators + 2 grid borders
-            self.cell_height * 9 + 8 + self.separator_size * 2 + if self.show_grid_border { 2 } else { 0 }
-        } else {
-            self.cell_height * 9 + self.separator_size * 2 + if self.show_grid_border { 2 } else { 0 }
-        }
-    }
-    
-    fn cell_total_width(&self) -> u16 {
-        if self.show_cell_borders {
-            self.cell_width + 1 // Each cell + 1 for the border line after it
-        } else {
-            self.cell_width
-        }
-    }
-    
-    fn cell_total_height(&self) -> u16 {
-        if self.show_cell_borders {
-            self.cell_height + 1 // Each cell + 1 for the border line after it
-        } else {
-            self.cell_height
-        }
+        result
     }
 }
 
 fn ui(f: &mut Frame, app: &App) {
     let size = f.area();
-    
-    // Prioritize showing header/footer even with smaller cells
-    // Header/footer each need 1 line minimum (3 with borders)
-    let show_header = size.height >= 11; // At least 9 for grid + 1 for header + 1 for footer
-    let show_instructions = size.height >= 11;
-    
-    // Decide if we have room for borders on header/footer
-    let header_borders = size.height >= 15; // 9 grid + 3 header + 3 footer
-    let margin = if size.width >= 49 && size.height >= 31 { 1 } else { 0 };
+
+    // Prioritize footer even with smaller cells
+    let show_instructions = size.height > 9;
+    let show_header = size.height > 12; // header is less important than footer and separators
+
+    // To keep visuals consistent, header will have borders earlier than footer
+    let header_borders = size.height > 14;
+    let footer_borders = size.height > 16;
 
     // Build constraints dynamically
     let mut constraints = vec![];
@@ -338,7 +535,7 @@ fn ui(f: &mut Frame, app: &App) {
     }
     constraints.push(Constraint::Min(0)); // Grid
     if show_instructions {
-        if header_borders {
+        if footer_borders {
             constraints.push(Constraint::Length(3)); // With borders
         } else {
             constraints.push(Constraint::Length(1)); // Without borders
@@ -348,7 +545,6 @@ fn ui(f: &mut Frame, app: &App) {
     // Create main layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(margin)
         .constraints(constraints)
         .split(size);
 
@@ -356,19 +552,10 @@ fn ui(f: &mut Frame, app: &App) {
 
     // Title (if shown)
     if show_header {
-        let title_text = Line::from(vec![
-            Span::styled("Sudoku", Style::default().add_modifier(Modifier::BOLD)),
-        ]);
-        
-        let title = if header_borders {
-            Paragraph::new(title_text)
-                .alignment(Alignment::Center)
-                .block(Block::default().borders(Borders::ALL))
-        } else {
-            Paragraph::new(title_text)
-                .alignment(Alignment::Center)
-        };
-        f.render_widget(title, chunks[chunk_idx]);
+        f.render_widget(
+            render_bordered_text("Sudoku", header_borders, true),
+            chunks[chunk_idx],
+        );
         chunk_idx += 1;
     }
 
@@ -380,283 +567,221 @@ fn ui(f: &mut Frame, app: &App) {
 
     // Instructions (if shown)
     if show_instructions {
-        let instructions_text = if header_borders {
-            vec![
-                Line::from("Arrows/hjkl: Move | 1-9: Set value | 0/⌫: Clear | +/-: Inc/Dec | ESC/q: Quit"),
-            ]
+        let area = chunks[chunk_idx];
+
+        let instructions = if area.width < 10 {
+            "⇆ ⇅ 0-9 Q"
+        } else if area.width < 12 {
+            "⇆ ⇅ 0-9 ⌫ Q"
+        } else if area.width < 14 {
+            "⇆ ⇅ ± 0-9 ⌫ Q"
+        } else if area.width < 16 {
+            "⇆ ⇅ ± 0-9 ⌫ ␛ Q"
+        } else if area.width < 17 {
+            "←↓↑→ ± 0-9 ⌫ ␛ Q"
+        } else if area.width < 19 {
+            "←↓↑→ ± 0-9 ⌫ Esc/Q"
+        } else if area.width < 24 {
+            "←↓↑→/hjkl ± 0-9 ⌫ Esc/Q"
+        } else if area.width < 26 {
+            "←↓↑→/hjkl -/+ 0-9 ⌫ Esc/Q"
+        } else if area.width < 56 {
+            "↑↓←→/hjkl:Move 1-9:Set 0/⌫:Clear +/-:Inc/Dec ESC/q:Quit"
+        } else if area.width >= 76 {
+            "Arrows/hjkl: Move | 1-9: Set value | 0/⌫: Clear | +/-: Inc/Dec | ESC/q: Quit"
         } else {
-            vec![
-                Line::from("↑↓←→/hjkl:Move 1-9:Set 0/⌫:Clear +/-:Inc/Dec ESC/q:Quit"),
-            ]
+            "Q"
         };
-        
-        let instructions = if header_borders {
-            Paragraph::new(instructions_text)
-                .alignment(Alignment::Center)
-                .block(Block::default().borders(Borders::ALL))
-        } else {
-            Paragraph::new(instructions_text)
-                .alignment(Alignment::Center)
-        };
-        f.render_widget(instructions, chunks[chunk_idx]);
+
+        f.render_widget(
+            render_bordered_text(instructions, footer_borders, false),
+            area,
+        );
     }
+}
+
+fn render_bordered_text(text: &str, with_borders: bool, bold: bool) -> Paragraph<'_> {
+    let mut text_style = Style::default();
+    if bold {
+        text_style = text_style.add_modifier(Modifier::BOLD);
+    }
+    let content = Line::from(vec![Span::styled(text, text_style)]);
+
+    let title = if with_borders {
+        Paragraph::new(content).alignment(Alignment::Center).block(
+            Block::default()
+                .border_style(Style::default().add_modifier(Modifier::BOLD))
+                .border_set(symbols::border::ROUNDED)
+                .borders(Borders::ALL),
+        )
+    } else {
+        Paragraph::new(content).alignment(Alignment::Center)
+    };
+
+    title
 }
 
 fn render_sudoku_grid(f: &mut Frame, app: &App, area: Rect, config: &LayoutConfig) {
     // Calculate grid dimensions based on config
-    let grid_width = config.grid_width();
-    let grid_height = config.grid_height();
+    let grid_width = config.grid_side();
+    let grid_height = config.grid_side();
+
+    if grid_height > area.height || grid_width > area.width {
+        return;
+    }
 
     // Center the grid and ensure it fits within area
-    let grid_area = Rect {
+    let inner = Rect {
         x: area.x + (area.width.saturating_sub(grid_width)) / 2,
-        y: area.y + (area.height.saturating_sub(grid_height)) / 2,
+        y: area.y,
         width: grid_width.min(area.width),
         height: grid_height.min(area.height),
     };
-    
-    // Ensure grid_area is within frame bounds
-    if grid_area.x >= f.area().width || grid_area.y >= f.area().height {
-        return; // Grid would be completely off-screen
-    }
-    
+
     let frame_area = f.area();
     let max_x = frame_area.width;
     let max_y = frame_area.height;
 
-    // Render grid border (if enabled)
-    let inner = if config.show_grid_border {
-        let grid_block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::White));
-        f.render_widget(grid_block, grid_area);
-        grid_area.inner(ratatui::layout::Margin {
-            horizontal: 1,
-            vertical: 1,
-        })
-    } else {
-        grid_area
-    };
+    // Cells will need to overlap if using collapsed borders
+    let cell_stride =
+        if config.small_cell { 1 } else { 3 } + if config.cell_collapsed { 0 } else { 1 };
+    let separator_stride = if config.separators_collapsed { 0 } else { 1 };
 
-    // Render grid lines (shared cell borders) FIRST so cells draw on top
-    if config.show_cell_borders {
-        render_grid_lines(f, inner, config, max_x, max_y);
-    }
-    
-    // Render each cell
-    let cell_total_width = config.cell_total_width();
-    let cell_total_height = config.cell_total_height();
-    
+    let mut cells = Vec::with_capacity(81);
+
     for y in 0..9 {
         for x in 0..9 {
-            // Calculate position accounting for shared borders and 3x3 separators
-            let border_offset_x = if config.show_cell_borders { x as u16 } else { 0 };
-            let border_offset_y = if config.show_cell_borders { y as u16 } else { 0 };
-            let sep_offset_x = (x as u16 / 3) * config.separator_size;
-            let sep_offset_y = (y as u16 / 3) * config.separator_size;
-            
-            let cell_x = inner.x + (x as u16) * config.cell_width + border_offset_x + sep_offset_x;
-            let cell_y = inner.y + (y as u16) * config.cell_height + border_offset_y + sep_offset_y;
+            // Position cells
+            let cell_x = inner.x + (x as u16) * cell_stride + (x as u16 / 3) * separator_stride;
+            let cell_y = inner.y + (y as u16) * cell_stride + (y as u16 / 3) * separator_stride;
 
             // Skip cells that would be outside frame bounds
             if cell_x >= max_x || cell_y >= max_y {
                 continue;
             }
 
-            let cell_area = Rect {
+            let cell_w = cell_stride;
+            let cell_h = cell_stride;
+
+            let enabled = app.model.get(x, y).enabled;
+            let selected = app.cursor_x == x && app.cursor_y == y;
+            let state = match app.model.colour(x, y) {
+                Colour::Black => State::Neutral,
+                Colour::Red => State::Bad,
+                Colour::Green => State::Good,
+            };
+            let value = app.model.get(x, y).text();
+
+            cells.push(Cell {
+                left: BorderStyle::None,
+                right: BorderStyle::None,
+                top: BorderStyle::None,
+                bottom: BorderStyle::None,
+                continued_left: x > 0,
+                continued_right: x < 8,
+                continued_up: y > 0,
+                continued_down: y < 8,
                 x: cell_x,
                 y: cell_y,
-                width: config.cell_width.min(max_x.saturating_sub(cell_x)),
-                height: config.cell_height.min(max_y.saturating_sub(cell_y)),
-            };
-
-            render_cell(f, app, cell_area, x, y, config);
+                w: cell_w,
+                h: cell_h,
+                state,
+                selected,
+                enabled,
+                text: value,
+            });
         }
     }
 
-    // Render 3x3 grid separators (if enabled) - thicker lines to distinguish 3x3 boxes
-    if config.separator_size > 0 {
-        // Calculate actual rendered grid dimensions based on inner area and frame bounds
-        let actual_grid_height = (cell_total_height * 9 + config.separator_size * 2)
-            .min(inner.height)
-            .min(max_y.saturating_sub(inner.y));
-        let actual_grid_width = (cell_total_width * 9 + config.separator_size * 2)
-            .min(inner.width)
-            .min(max_x.saturating_sub(inner.x));
-        
-        for i in 1..3 {
-            // Vertical separators
-            let sep_x = inner.x + (i as u16) * (cell_total_width * 3 + config.separator_size) - 1;
-            // Only render separators within frame bounds
-            if sep_x < max_x && sep_x < inner.x + inner.width {
-                for y in 0..actual_grid_height {
-                    let y_pos = inner.y + y;
-                    // Check frame bounds before rendering
-                    if y_pos < max_y {
-                        let sep_area = Rect {
-                            x: sep_x,
-                            y: y_pos,
-                            width: 1,
-                            height: 1,
-                        };
-                        let sep = Paragraph::new("│").style(Style::default().fg(Color::DarkGray));
-                        f.render_widget(sep, sep_area);
-                    }
-                }
-            }
+    cells.sort_by(|a, b| {
+        a.selected
+            .cmp(&b.selected)
+            .then_with(|| a.state.cmp(&b.state))
+    });
 
-            // Horizontal separators
-            let sep_y = inner.y + (i as u16) * (cell_total_height * 3 + config.separator_size) - 1;
-            // Only render separators within frame bounds
-            if sep_y < max_y && sep_y < inner.y + inner.height {
-                for x in 0..actual_grid_width {
-                    let x_pos = inner.x + x;
-                    // Check frame bounds before rendering
-                    if x_pos < max_x {
-                        let sep_area = Rect {
-                            x: x_pos,
-                            y: sep_y,
-                            width: 1,
-                            height: 1,
-                        };
-                        let sep = Paragraph::new("─").style(Style::default().fg(Color::DarkGray));
-                        f.render_widget(sep, sep_area);
-                    }
-                }
-            }
-        }
+    for cell in cells {
+        render_cell(f, cell)
     }
 }
 
-fn render_grid_lines(f: &mut Frame, inner: Rect, config: &LayoutConfig, max_x: u16, max_y: u16) {
-    // Draw horizontal lines between rows (but not at 3x3 boundaries which are drawn as separators)
-    for row in 1..9 {
-        // Skip rows that are 3x3 boundaries
-        if row % 3 == 0 && config.separator_size > 0 {
-            continue;
-        }
-        
-        // Line is drawn AFTER row-1 and BEFORE row
-        // Position: cell_height * row + (row - 1 for previous lines) + separator offsets
-        let line_y = inner.y + config.cell_height * row as u16 + row as u16 - 1 + (row as u16 / 3) * config.separator_size;
-        
-        if line_y >= max_y {
-            break;
-        }
-        
-        // Draw horizontal line across all cells in this row
-        for col in 0..9 {
-            let cell_x = inner.x + config.cell_width * col as u16 + col as u16 + (col as u16 / 3) * config.separator_size;
-            
-            if cell_x >= max_x {
-                break;
-            }
-            
-            // Draw line for the width of this cell
-            for offset in 0..config.cell_width {
-                let x = cell_x + offset;
-                if x < max_x {
-                    let area = Rect { x, y: line_y, width: 1, height: 1 };
-                    f.render_widget(Paragraph::new("─").style(Style::default().fg(Color::DarkGray)), area);
-                }
-            }
-        }
-    }
-    
-    // Draw vertical lines between columns (but not at 3x3 boundaries)
-    for col in 1..9 {
-        // Skip columns that are 3x3 boundaries
-        if col % 3 == 0 && config.separator_size > 0 {
-            continue;
-        }
-        
-        // Line is drawn AFTER col-1 and BEFORE col
-        let line_x = inner.x + config.cell_width * col as u16 + col as u16 - 1 + (col as u16 / 3) * config.separator_size;
-        
-        if line_x >= max_x {
-            break;
-        }
-        
-        // Draw vertical line across all cells in this column
-        for row in 0..9 {
-            let cell_y = inner.y + config.cell_height * row as u16 + row as u16 + (row as u16 / 3) * config.separator_size;
-            
-            if cell_y >= max_y {
-                break;
-            }
-            
-            // Draw line for the height of this cell
-            for offset in 0..config.cell_height {
-                let y = cell_y + offset;
-                if y < max_y {
-                    let area = Rect { x: line_x, y, width: 1, height: 1 };
-                    f.render_widget(Paragraph::new("│").style(Style::default().fg(Color::DarkGray)), area);
-                }
-            }
-        }
-    }
-}
+fn render_cell(f: &mut Frame, cell: Cell) {
+    let area = Rect {
+        x: cell.x,
+        y: cell.y,
+        width: cell.w,
+        height: cell.h,
+    };
 
-fn render_cell(f: &mut Frame, app: &App, area: Rect, x: usize, y: usize, config: &LayoutConfig) {
     // Skip rendering if area is empty or invalid
     if area.width == 0 || area.height == 0 {
         return;
     }
-    
-    let value = app.model.get(x, y);
-    let colour = app.model.colour(x, y);
-    let is_selected = app.cursor_x == x && app.cursor_y == y;
+
+    let text = cell.text;
+    let is_selected = cell.selected;
 
     // Determine colors
-    let fg_color = match colour {
-        Colour::Black => Color::White,
-        Colour::Red => Color::Red,
-        Colour::Green => Color::Green,
+    let fg_color = match cell.state {
+        State::Neutral => Color::White,
+        State::Bad => Color::Red,
+        State::Good => Color::Green,
     };
 
     let mut style = Style::default().fg(fg_color);
-    if is_selected {
-        style = style.add_modifier(Modifier::BOLD);
-    }
-    if !value.enabled {
+    if !cell.enabled {
         style = style.add_modifier(Modifier::BOLD);
     }
 
-    // Add background/highlighting for selected cell
+    // Highlight selected cell
     if is_selected {
-        if config.show_cell_borders {
-            // With shared borders, use background and underline
-            style = style.bg(Color::DarkGray).add_modifier(Modifier::UNDERLINED);
-        } else {
-            // Without borders, just use background
-            style = style.bg(Color::DarkGray);
-        }
+        style = style.bg(Color::DarkGray).add_modifier(Modifier::BOLD);
     }
 
-    let text = value.text();
-    let cell_content = Paragraph::new(text)
-        .alignment(Alignment::Center)
-        .style(style);
-
-    if config.show_cell_borders {
-        // Using shared borders (grid lines), so just render cell content
-        
-        // Center text vertically in the cell
-        let text_area = if config.cell_height > 1 {
-            Rect {
-                x: area.x,
-                y: area.y + (area.height / 2),
-                width: area.width,
-                height: 1,
-            }
+    if cell.has_borders() {
+        // Use collapsed borders approach from ratatui docs
+        // Determine which borders this cell should render
+        let borders = cell.get_borders();
+        let border_set = cell.get_border_set();
+        let border_style = if is_selected {
+            Style::default().fg(Color::Yellow)
+        } else if !cell.enabled {
+            Style::default().fg(Color::Cyan)
         } else {
-            area
+            Style::default().fg(Color::DarkGray)
         };
-        f.render_widget(cell_content, text_area);
+
+        let block = Block::default()
+            .borders(borders)
+            .border_set(border_set)
+            .border_style(border_style);
+
+        let inner_area = block.inner(area);
+        f.render_widget(block, area);
+
+        // Render text centered in the inner area
+        if inner_area.width > 0 && inner_area.height > 0 {
+            let text_widget = Paragraph::new(text)
+                .alignment(Alignment::Center)
+                .style(style);
+            let text_area = if inner_area.height > 1 {
+                Rect {
+                    x: inner_area.x,
+                    y: inner_area.y + (inner_area.height / 2),
+                    width: inner_area.width,
+                    height: 1,
+                }
+            } else {
+                inner_area
+            };
+            f.render_widget(text_widget, text_area);
+        }
     } else {
         // Render without borders (minimal mode)
-        // For single-line cells, no need to adjust vertical position
-        let text_area = if config.cell_height > 1 {
+        let cell_content = Paragraph::new(text)
+            .alignment(Alignment::Center)
+            .style(style);
+
+        let text_area = if cell.h > 1 {
             Rect {
                 x: area.x,
                 y: area.y + (area.height / 2),
@@ -669,4 +794,3 @@ fn render_cell(f: &mut Frame, app: &App, area: Rect, x: usize, y: usize, config:
         f.render_widget(cell_content, text_area);
     }
 }
-
