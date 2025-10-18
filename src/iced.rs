@@ -75,7 +75,7 @@ pub fn main(sudoku_model: SudokuModel) -> iced::Result {
 }
 
 impl SudokuModel {
-    pub fn view(&self) -> Column<Message> {
+    pub fn view(&self) -> Column<'_, Message> {
         let default_button_style: Style = Style {
             background: Some(Background::Color(Color::WHITE)),
             border: DEFAULT_BORDER,

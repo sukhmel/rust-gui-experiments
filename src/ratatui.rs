@@ -29,6 +29,8 @@
 //! - **11x11**: Simple 1x1 cells with separators
 //! - **17x17**: Overlapping 3x3 cells with collapsed borders and collapsed separators
 //! - **19x19**: Overlapping 3x3 cells with separators, borders and border around, all collapsed
+//!
+//! These modes are not displaying correctly yet, because some maths is off:
 //! - **23x23**: Overlapping 3x3 cells with separators and collapsed borders
 //! - **25x25**: Overlapping 3x3 cells with separators, collapsed borders and border around
 //! - **29x29**: Separate 3x3 cells with borders and separators
@@ -44,6 +46,8 @@ use crossterm::{
 };
 use ratatui::backend::Backend;
 use ratatui::symbols::line::{DOUBLE_HORIZONTAL, DOUBLE_VERTICAL, HORIZONTAL, Set, VERTICAL};
+use ratatui::text::Text;
+use ratatui::widgets::Wrap;
 use ratatui::{
     Frame, Terminal,
     backend::CrosstermBackend,
@@ -206,6 +210,7 @@ struct Cell {
     state: State,
     selected: bool,
     enabled: bool,
+    separate: bool,
     text: &'static str,
 }
 
@@ -378,6 +383,7 @@ struct App {
     cursor_x: usize,
     cursor_y: usize,
     should_quit: bool,
+    debug: bool,
 }
 
 impl App {
@@ -387,11 +393,16 @@ impl App {
             cursor_x: 0,
             cursor_y: 0,
             should_quit: false,
+            debug: false,
         }
     }
 
     fn handle_key(&mut self, key: KeyEvent) {
         match key.code {
+            // Debug grid info
+            KeyCode::Char('d') => {
+                self.debug = !self.debug;
+            }
             // Quit
             KeyCode::Esc | KeyCode::Char('q') => {
                 self.should_quit = true;
@@ -464,8 +475,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
 }
 
 /// Layout configuration based on available grid area size
+#[derive(Debug)]
 struct LayoutConfig {
-    small_cell: bool,
+    cell_h: u16,
+    cell_w: u16,
     outer_border: bool,
     cell_border: bool,
     cell_collapsed: bool,
@@ -475,16 +488,35 @@ struct LayoutConfig {
 
 impl LayoutConfig {
     fn from_size(width: u16, height: u16) -> Self {
-        let small_cell = width < 17 || height < 17;
-        let cell_border = width > 16 && height > 16;
-        let cell_collapsed = width < 29 || height < 29;
-        let separators_collapsed = width > 16 && width < 23 && height > 16 && height < 23;
-        let separators_visible = width > 10 && height > 10;
-        let outer_border = width > 18 && width < 23 && height > 18 && height < 23
-            || width > 24 && width < 29 && height > 24 && height < 29
-            || width > 30 && height > 30;
+        // Now I see that this should have been done differently, because now some sizes will cause
+        // flags that don't make sense together. Probably it would work if cell sizes are chosen
+        // first, then area size is calculated in multiples of cell sizes, but it didn't work right
+        // away, and I don't want to troubleshoot longer.
+        let cell_h = if height < 17 {
+            1
+        } else {
+            //if height < 29
+            2
+        };
+        let cell_w = if width < 23 {
+            1
+        } else if width < 32 {
+            2
+        } else if width < 50 {
+            3
+        } else {
+            5
+        };
+        let cell_border = cell_w > 2 && cell_h > 1;
+        let cell_collapsed = width < 39 || height < 29;
+        let separators_collapsed =
+            height < 11 || width < 11 || width > 16 && width < 21 || height > 16 && height < 21;
+        let separators_visible =
+            width > 10 && height > 10 && !(width > 20 && width < 29 || height > 20 && height < 29);
+        let outer_border = height > 18 && height < 29 || width > 60 && height > 30;
         Self {
-            small_cell,
+            cell_h,
+            cell_w,
             outer_border,
             cell_border,
             cell_collapsed,
@@ -493,20 +525,92 @@ impl LayoutConfig {
         }
     }
 
-    fn grid_side(&self) -> u16 {
-        let mut result = 0;
+    fn grid_width(&self) -> u16 {
+        self.grid_size(self.cell_w)
+    }
+    fn grid_height(&self) -> u16 {
+        // overrides to fix sloppy coordinates math, that led to negative offset for some sizes
+        if self.cell_h == 2
+            && self.outer_border
+            && self.cell_border
+            && !self.cell_collapsed
+            && self.separators_visible
+            && !self.separators_collapsed
+        {
+            return 29;
+        }
+        if self.cell_h == 2
+            && !self.outer_border
+            && self.cell_border
+            && !self.cell_collapsed
+            && self.separators_visible
+            && !self.separators_collapsed
+        {
+            return 27;
+        }
+        if self.cell_h == 2
+            && self.outer_border
+            && self.cell_border
+            && self.cell_collapsed
+            && !self.separators_visible
+            && !self.separators_collapsed
+        {
+            return 21;
+        }
+        if self.cell_h == 2
+            && self.outer_border
+            && self.cell_border
+            && self.cell_collapsed
+            && self.separators_visible
+            && self.separators_collapsed
+        {
+            return 19;
+        }
+        if self.cell_h == 2
+            && !self.outer_border
+            && self.cell_border
+            && self.cell_collapsed
+            && self.separators_visible
+            && self.separators_collapsed
+        {
+            return 17;
+        }
+        if self.cell_h == 1
+            && !self.outer_border
+            && !self.cell_border
+            && self.cell_collapsed
+            && self.separators_visible
+            && !self.separators_collapsed
+        {
+            return 9;
+        }
+        if self.cell_h == 1
+            && !self.outer_border
+            && !self.cell_border
+            && self.cell_collapsed
+            && !self.separators_visible
+            && self.separators_collapsed
+        {
+            return 9;
+        }
+
+        self.grid_size(self.cell_h)
+    }
+    fn grid_size(&self, cell_size: u16) -> u16 {
+        let mut result = 9 * cell_size;
+        if !self.cell_collapsed {
+            result += 9;
+        } else if self.cell_border {
+            result -= 7;
+        }
+
         if self.outer_border {
-            result += 2;
+            result += 1;
+        } else if cell_size > 1 {
+            result -= 1;
         }
         if self.separators_visible && !self.separators_collapsed {
             result += 2;
-        }
-        if self.cell_border {
-            if self.cell_collapsed {
-                result += 2 * 9;
-            } else {
-                result += 3 * 9
-            }
         }
 
         result
@@ -569,28 +673,28 @@ fn ui(f: &mut Frame, app: &App) {
     if show_instructions {
         let area = chunks[chunk_idx];
 
-        let instructions = if area.width < 10 {
-            "⇆ ⇅ 0-9 Q"
-        } else if area.width < 12 {
-            "⇆ ⇅ 0-9 ⌫ Q"
-        } else if area.width < 14 {
-            "⇆ ⇅ ± 0-9 ⌫ Q"
-        } else if area.width < 16 {
-            "⇆ ⇅ ± 0-9 ⌫ ␛ Q"
-        } else if area.width < 17 {
-            "←↓↑→ ± 0-9 ⌫ ␛ Q"
-        } else if area.width < 19 {
-            "←↓↑→ ± 0-9 ⌫ Esc/Q"
-        } else if area.width < 24 {
-            "←↓↑→/hjkl ± 0-9 ⌫ Esc/Q"
-        } else if area.width < 26 {
-            "←↓↑→/hjkl -/+ 0-9 ⌫ Esc/Q"
-        } else if area.width < 56 {
-            "↑↓←→/hjkl:Move 1-9:Set 0/⌫:Clear +/-:Inc/Dec ESC/q:Quit"
-        } else if area.width >= 76 {
-            "Arrows/hjkl: Move | 1-9: Set value | 0/⌫: Clear | +/-: Inc/Dec | ESC/q: Quit"
-        } else {
+        let instructions = if area.width < 9 {
             "Q"
+        } else if area.width < 12 {
+            "⇆ ⇅ 0-9 Q"
+        } else if area.width < 14 {
+            "⇆ ⇅ 0-9 ⌫ Q"
+        } else if area.width < 16 {
+            "⇆ ⇅ ± 0-9 ⌫ Q"
+        } else if area.width < 17 {
+            "⇆ ⇅ ± 0-9 ⌫ ␛ Q"
+        } else if area.width < 19 {
+            "←↓↑→ ± 0-9 ⌫ ␛ Q"
+        } else if area.width < 24 {
+            "←↓↑→ ± 0-9 ⌫ Esc/Q"
+        } else if area.width < 26 {
+            "←↓↑→/hjkl ± 0-9 ⌫ Esc/Q"
+        } else if area.width < 56 {
+            "←↓↑→/hjkl -/+ 0-9 ⌫ Esc/Q"
+        } else if area.width < 76 {
+            "↑↓←→/hjkl:Move 1-9:Set 0/⌫:Clear +/-:Inc/Dec ESC/q:Quit"
+        } else {
+            "Arrows/hjkl: Move | 1-9: Set value | 0/⌫: Clear | +/-: Inc/Dec | ESC/q: Quit"
         };
 
         f.render_widget(
@@ -623,45 +727,78 @@ fn render_bordered_text(text: &str, with_borders: bool, bold: bool) -> Paragraph
 
 fn render_sudoku_grid(f: &mut Frame, app: &App, area: Rect, config: &LayoutConfig) {
     // Calculate grid dimensions based on config
-    let grid_width = config.grid_side();
-    let grid_height = config.grid_side();
-
-    if grid_height > area.height || grid_width > area.width {
-        return;
-    }
+    let grid_width = config.grid_width();
+    let grid_height = config.grid_height();
 
     // Center the grid and ensure it fits within area
     let inner = Rect {
         x: area.x + (area.width.saturating_sub(grid_width)) / 2,
-        y: area.y,
-        width: grid_width.min(area.width),
-        height: grid_height.min(area.height),
+        y: area.y + (area.height.saturating_sub(grid_height)) / 2,
+        width: grid_width,
+        height: grid_height,
     };
+
+    if grid_height > area.height || grid_width > area.width {
+        f.render_widget(
+            Paragraph::new(
+                Line::from(vec![
+                    Span::styled("terminal too small to render, press ", Style::default()),
+                    Span::styled(
+                        "ESC",
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Yellow),
+                    ),
+                    Span::styled(" or ", Style::default()),
+                    Span::styled(
+                        "Q",
+                        Style::default()
+                            .add_modifier(Modifier::BOLD)
+                            .fg(Color::Yellow),
+                    ),
+                    Span::styled(" to quit", Style::default()),
+                ])
+                .alignment(Alignment::Left),
+            )
+            .wrap(Wrap { trim: true }),
+            area,
+        );
+        return;
+    }
 
     let frame_area = f.area();
     let max_x = frame_area.width;
     let max_y = frame_area.height;
 
     // Cells will need to overlap if using collapsed borders
-    let cell_stride =
-        if config.small_cell { 1 } else { 3 } + if config.cell_collapsed { 0 } else { 1 };
+    let cell_stride_y = config.cell_h + if config.cell_collapsed { 0 } else { 1 };
+    let cell_stride_x = config.cell_w + if config.cell_collapsed { 0 } else { 1 }
+        - if config.cell_border && config.cell_collapsed {
+            1
+        } else {
+            0
+        };
     let separator_stride = if config.separators_collapsed { 0 } else { 1 };
 
     let mut cells = Vec::with_capacity(81);
 
     for y in 0..9 {
         for x in 0..9 {
+            let (correction_w, correction_x) = get_correction(config, x);
+            let (correction_h, correction_y) = get_correction(config, y);
             // Position cells
-            let cell_x = inner.x + (x as u16) * cell_stride + (x as u16 / 3) * separator_stride;
-            let cell_y = inner.y + (y as u16) * cell_stride + (y as u16 / 3) * separator_stride;
+            let cell_x = inner.x + (x as u16) * cell_stride_x + (x as u16 / 3) * separator_stride
+                - correction_x;
+            let cell_y = inner.y + (y as u16) * cell_stride_y + (y as u16 / 3) * separator_stride
+                - correction_y;
 
             // Skip cells that would be outside frame bounds
-            if cell_x >= max_x || cell_y >= max_y {
+            if cell_x + config.cell_w > max_x || cell_y + config.cell_h > max_y {
                 continue;
             }
 
-            let cell_w = cell_stride;
-            let cell_h = cell_stride;
+            let cell_w = config.cell_w - correction_w;
+            let cell_h = config.cell_h - correction_h;
 
             let enabled = app.model.get(x, y).enabled;
             let selected = app.cursor_x == x && app.cursor_y == y;
@@ -671,16 +808,69 @@ fn render_sudoku_grid(f: &mut Frame, app: &App, area: Rect, config: &LayoutConfi
                 Colour::Green => State::Good,
             };
             let value = app.model.get(x, y).text();
+            let border_left = if config.cell_border {
+                if x == 0 && !config.outer_border && config.separators_collapsed {
+                    BorderStyle::None
+                } else if x % 3 == 0 && config.separators_visible && config.separators_collapsed {
+                    BorderStyle::Double
+                } else {
+                    BorderStyle::Plain
+                }
+            } else {
+                BorderStyle::None
+            };
+            let border_right = if config.cell_border {
+                if x == 8 && !config.outer_border && config.separators_collapsed {
+                    BorderStyle::None
+                } else if x % 3 == 2 && config.separators_visible && config.separators_collapsed {
+                    BorderStyle::Double
+                } else {
+                    BorderStyle::Plain
+                }
+            } else {
+                BorderStyle::None
+            };
+            let border_top = if config.cell_border {
+                if y == 0 && !config.outer_border && config.separators_collapsed {
+                    BorderStyle::None
+                } else if y % 3 == 0 && config.separators_visible && config.separators_collapsed {
+                    BorderStyle::Double
+                } else {
+                    BorderStyle::Plain
+                }
+            } else {
+                BorderStyle::None
+            };
+            let border_bottom = if config.cell_border {
+                if y == 8 && !config.outer_border && config.separators_collapsed {
+                    BorderStyle::None
+                } else if y % 3 == 2 && config.separators_visible && config.separators_collapsed {
+                    BorderStyle::Double
+                } else {
+                    BorderStyle::Plain
+                }
+            } else {
+                BorderStyle::None
+            };
 
+            // a & b & c || a & b & !c & d
             cells.push(Cell {
-                left: BorderStyle::None,
-                right: BorderStyle::None,
-                top: BorderStyle::None,
-                bottom: BorderStyle::None,
-                continued_left: x > 0,
-                continued_right: x < 8,
-                continued_up: y > 0,
-                continued_down: y < 8,
+                left: border_left,
+                right: border_right,
+                top: border_top,
+                bottom: border_bottom,
+                continued_left: x > 0
+                    && config.cell_collapsed
+                    && (config.separators_collapsed || x % 3 != 0),
+                continued_right: x < 8
+                    && config.cell_collapsed
+                    && (config.separators_collapsed || x % 3 != 2),
+                continued_up: y > 0
+                    && config.cell_collapsed
+                    && (config.separators_collapsed || y % 3 != 0),
+                continued_down: y < 8
+                    && config.cell_collapsed
+                    && (config.separators_collapsed || y % 3 != 2),
                 x: cell_x,
                 y: cell_y,
                 w: cell_w,
@@ -688,6 +878,7 @@ fn render_sudoku_grid(f: &mut Frame, app: &App, area: Rect, config: &LayoutConfi
                 state,
                 selected,
                 enabled,
+                separate: !config.cell_collapsed,
                 text: value,
             });
         }
@@ -696,11 +887,170 @@ fn render_sudoku_grid(f: &mut Frame, app: &App, area: Rect, config: &LayoutConfi
     cells.sort_by(|a, b| {
         a.selected
             .cmp(&b.selected)
+            .then_with(|| (!a.enabled).cmp(&(!b.enabled)))
             .then_with(|| a.state.cmp(&b.state))
     });
 
     for cell in cells {
         render_cell(f, cell)
+    }
+
+    render_separators(f, config, inner, cell_stride_y, cell_stride_x);
+
+    if app.debug {
+        f.render_widget(
+            Text::from(format!(
+                "area: {area:#?}\ngrid: {}x{}\ninner: {inner:#?}\nconfig: {config:#?}\n",
+                grid_width, grid_height
+            )),
+            area,
+        );
+    }
+}
+
+fn get_correction(config: &LayoutConfig, x: usize) -> (u16, u16) {
+    if !config.outer_border && config.separators_visible {
+        if config.separators_collapsed {
+            match x {
+                0 => (1, 0),
+                8 => (1, 1),
+                _ => (0, 1),
+            }
+        } else {
+            (0, 1)
+        }
+    } else {
+        (0, 0)
+    }
+}
+
+fn render_separators(
+    f: &mut Frame,
+    config: &LayoutConfig,
+    inner: Rect,
+    cell_stride_y: u16,
+    cell_stride_x: u16,
+) {
+    if !config.separators_collapsed && config.separators_visible {
+        for y in 0..3 {
+            for x in 0..3 {
+                let mut border_set = symbols::border::DOUBLE;
+                border_set.bottom_right = if x < 2 {
+                    if y < 2 {
+                        symbols::line::DOUBLE.cross
+                    } else {
+                        symbols::line::DOUBLE.horizontal_up
+                    }
+                } else {
+                    if y < 2 {
+                        symbols::line::DOUBLE.vertical_left
+                    } else {
+                        symbols::line::DOUBLE.bottom_right
+                    }
+                };
+                border_set.top_right = if x < 2 {
+                    if y == 0 {
+                        symbols::line::DOUBLE.horizontal_down
+                    } else {
+                        symbols::line::DOUBLE.cross
+                    }
+                } else {
+                    if y == 0 {
+                        symbols::line::DOUBLE.top_right
+                    } else {
+                        symbols::line::DOUBLE.vertical_left
+                    }
+                };
+                border_set.bottom_left = if x == 0 {
+                    if y < 2 {
+                        symbols::line::DOUBLE.vertical_right
+                    } else {
+                        symbols::line::DOUBLE.bottom_left
+                    }
+                } else {
+                    if y < 2 {
+                        symbols::line::DOUBLE.cross
+                    } else {
+                        symbols::line::DOUBLE.horizontal_up
+                    }
+                };
+                border_set.top_left = if x == 0 {
+                    if y == 0 {
+                        symbols::line::DOUBLE.top_left
+                    } else {
+                        symbols::line::DOUBLE.vertical_right
+                    }
+                } else {
+                    if y == 0 {
+                        symbols::line::DOUBLE.horizontal_down
+                    } else {
+                        symbols::line::DOUBLE.cross
+                    }
+                };
+
+                let mut borders = Borders::ALL;
+
+                if !config.outer_border {
+                    if x == 0 {
+                        borders ^= Borders::LEFT;
+                    }
+                    if x == 2 {
+                        borders ^= Borders::RIGHT;
+                    }
+                    if y == 0 {
+                        borders ^= Borders::TOP;
+                    }
+                    if y == 2 {
+                        borders ^= Borders::BOTTOM;
+                    }
+                }
+
+                let offset = if config.outer_border {
+                    if !config.cell_collapsed { 1 } else { 0 }
+                } else {
+                    1
+                };
+                let (width, height, x, y) = if config.outer_border
+                    && !config.cell_collapsed
+                    && !config.separators_collapsed
+                {
+                    let stride_x = 3 * cell_stride_x + 1;
+                    let stride_y = 3 * cell_stride_y + 1;
+                    (
+                        if x == 0 {
+                            3 * cell_stride_x + 3
+                        } else {
+                            3 * cell_stride_x + 2
+                        },
+                        3 * cell_stride_y + 2,
+                        inner.x + x * stride_x - 1 - if x == 0 { 1 } else { 0 },
+                        inner.y + y * stride_y - 1,
+                    )
+                } else {
+                    let stride_x = 3 * cell_stride_x;
+                    let stride_y = 3 * cell_stride_y;
+                    (
+                        3 * cell_stride_x + 1,
+                        3 * cell_stride_y + 1 + if y == 1 { 1 } else { 0 },
+                        inner.x + x * stride_x - offset,
+                        inner.y + y * stride_y - offset + if y == 2 { 1 } else { 0 },
+                    )
+                };
+
+                f.render_widget(
+                    Block::default()
+                        .borders(borders)
+                        .border_style(Style::default().fg(Color::DarkGray))
+                        .border_set(border_set),
+                    Rect {
+                        x,
+                        y,
+                        width,
+                        height,
+                    },
+                );
+            }
+        }
     }
 }
 
@@ -709,7 +1059,7 @@ fn render_cell(f: &mut Frame, cell: Cell) {
         x: cell.x,
         y: cell.y,
         width: cell.w,
-        height: cell.h,
+        height: cell.h + if cell.has_borders() { 1 } else { 0 },
     };
 
     // Skip rendering if area is empty or invalid
@@ -742,13 +1092,17 @@ fn render_cell(f: &mut Frame, cell: Cell) {
         // Determine which borders this cell should render
         let borders = cell.get_borders();
         let border_set = cell.get_border_set();
-        let border_style = if is_selected {
-            Style::default().fg(Color::Yellow)
-        } else if !cell.enabled {
-            Style::default().fg(Color::Cyan)
+        let border_style = Style::default().fg(if cell.separate {
+            if is_selected {
+                Color::Yellow
+            } else if !cell.enabled {
+                Color::Cyan
+            } else {
+                Color::DarkGray
+            }
         } else {
-            Style::default().fg(Color::DarkGray)
-        };
+            Color::DarkGray
+        });
 
         let block = Block::default()
             .borders(borders)
@@ -792,5 +1146,22 @@ fn render_cell(f: &mut Frame, cell: Cell) {
             area
         };
         f.render_widget(cell_content, text_area);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_size_17() {
+        let config = LayoutConfig::from_size(129, 17);
+        assert_eq!(config.grid_height(), 17, "{config:?}");
+    }
+
+    #[test]
+    fn from_size_21() {
+        let config = LayoutConfig::from_size(129, 21);
+        assert_eq!(config.grid_height(), 22, "{config:?}");
     }
 }

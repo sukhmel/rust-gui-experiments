@@ -23,7 +23,6 @@ leptos = { version = "0.8", optional = true, features = ["csr"] }
 ratatui = { version = "0.29", optional = true }
 rui = { version = "0.6", optional = true }
 slint = { version = "1.10", optional = true }
-tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 xilem = { version = "0.3", optional = true }
 wasm-bindgen = { version = "0.2.63", optional = true }

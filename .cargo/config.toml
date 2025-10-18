@@ -1,0 +1,10 @@
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-args=-fobjc-exceptions"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-args=-fobjc-exceptions"]
+
+[env]
+# Fix for objc_exception compilation on macOS
+CFLAGS = "-fobjc-exceptions"
+

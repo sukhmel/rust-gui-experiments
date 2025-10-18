@@ -4579,7 +4579,6 @@ dependencies = [
  "rui",
  "slint",
  "slint-build",
- "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-test",
